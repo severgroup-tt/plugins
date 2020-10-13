@@ -311,7 +311,7 @@ public class Messages {
 
     void initialize();
 
-    TextureMessage create(Context context, CreateMessage arg);
+    TextureMessage create(CreateMessage arg);
 
     void dispose(TextureMessage arg);
 

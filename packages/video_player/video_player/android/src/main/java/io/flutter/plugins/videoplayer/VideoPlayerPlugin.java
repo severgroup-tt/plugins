@@ -101,10 +101,7 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
   }
 
   private void disposeAllPlayers() {
-//    for (int i = 0; i < videoPlayers.size(); i++) {
-//      videoPlayers.valueAt(i).dispose();
-//    }
-//    videoPlayers.clear();
+    service.disposeAllPlayers();
   }
 
   private void onDestroy() {
@@ -127,7 +124,7 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
     }
   }
 
-  public TextureMessage create(Context context, CreateMessage arg) {
+  public TextureMessage create(CreateMessage arg) {
     TextureRegistry.SurfaceTextureEntry handle =
         flutterState.textureRegistry.createSurfaceTexture();
     EventChannel eventChannel =
