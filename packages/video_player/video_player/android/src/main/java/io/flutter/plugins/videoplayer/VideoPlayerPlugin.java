@@ -4,6 +4,9 @@
 
 package io.flutter.plugins.videoplayer;
 
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -122,6 +125,20 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
       Intent intent = new Intent(context, VideoPlayerService.class);
       context.bindService(intent, connection, Context.BIND_AUTO_CREATE);
     }
+
+    createNotificationChannel(context, "channel", "player channel");
+  }
+
+  private String createNotificationChannel(Context context, String channelId, String channelName){
+    NotificationChannel chan = new NotificationChannel(
+            channelId,
+            channelName,
+            NotificationManager.IMPORTANCE_NONE
+    );
+    chan.setLockscreenVisibility(Notification.VISIBILITY_PRIVATE);
+    NotificationManager service = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+    service.createNotificationChannel(chan);
+    return channelId;
   }
 
   public TextureMessage create(CreateMessage arg) {
@@ -244,6 +261,10 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
     public void onServiceConnected(ComponentName componentName, IBinder iBinder) {
       service = ((VideoPlayerService.VideoPlayerBinder) iBinder).getService();
       isServiceBound = true;
+      service.startForeground(
+              1,
+              new Notification.Builder(service, "channel").build()
+      );
     }
 
     @Override

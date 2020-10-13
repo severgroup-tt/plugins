@@ -370,7 +370,7 @@ public class Messages {
                 try {
                   @SuppressWarnings("ConstantConditions")
                   CreateMessage input = CreateMessage.fromMap((HashMap) message);
-                  TextureMessage output = api.create(context, input);
+                  TextureMessage output = api.create(input);
                   wrapped.put("result", output.toMap());
                 } catch (Exception exception) {
                   wrapped.put("error", wrapError(exception));
