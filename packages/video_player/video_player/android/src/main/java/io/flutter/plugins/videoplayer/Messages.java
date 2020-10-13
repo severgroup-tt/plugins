@@ -3,6 +3,8 @@
 
 package io.flutter.plugins.videoplayer;
 
+import android.content.Context;
+
 import io.flutter.plugin.common.BasicMessageChannel;
 import io.flutter.plugin.common.BinaryMessenger;
 import io.flutter.plugin.common.StandardMessageCodec;
@@ -305,9 +307,11 @@ public class Messages {
 
   /** Generated interface from Pigeon that represents a handler of messages from Flutter. */
   public interface VideoPlayerApi {
+    void setup(Context context);
+
     void initialize();
 
-    TextureMessage create(CreateMessage arg);
+    TextureMessage create(Context context, CreateMessage arg);
 
     void dispose(TextureMessage arg);
 
@@ -328,7 +332,9 @@ public class Messages {
     void setMixWithOthers(MixWithOthersMessage arg);
 
     /** Sets up an instance of `VideoPlayerApi` to handle messages through the `binaryMessenger` */
-    static void setup(BinaryMessenger binaryMessenger, VideoPlayerApi api) {
+    static void setup(Context context, BinaryMessenger binaryMessenger, VideoPlayerApi api) {
+      api.setup(context);
+
       {
         BasicMessageChannel<Object> channel =
             new BasicMessageChannel<>(
@@ -364,7 +370,7 @@ public class Messages {
                 try {
                   @SuppressWarnings("ConstantConditions")
                   CreateMessage input = CreateMessage.fromMap((HashMap) message);
-                  TextureMessage output = api.create(input);
+                  TextureMessage output = api.create(context, input);
                   wrapped.put("result", output.toMap());
                 } catch (Exception exception) {
                   wrapped.put("error", wrapError(exception));

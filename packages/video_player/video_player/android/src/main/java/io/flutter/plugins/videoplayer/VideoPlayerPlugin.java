@@ -4,8 +4,12 @@
 
 package io.flutter.plugins.videoplayer;
 
+import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
+import android.content.ServiceConnection;
 import android.os.Build;
+import android.os.IBinder;
 import android.util.Log;
 import android.util.LongSparseArray;
 import io.flutter.embedding.engine.loader.FlutterLoader;
@@ -28,9 +32,11 @@ import javax.net.ssl.HttpsURLConnection;
 /** Android platform implementation of the VideoPlayerPlugin. */
 public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
   private static final String TAG = "VideoPlayerPlugin";
-  private final LongSparseArray<VideoPlayer> videoPlayers = new LongSparseArray<>();
   private FlutterState flutterState;
   private VideoPlayerOptions options = new VideoPlayerOptions();
+
+  private VideoPlayerService service;
+  private boolean isServiceBound = false;
 
   /** Register this with the v2 embedding for the plugin to respond to lifecycle callbacks. */
   public VideoPlayerPlugin() {}
@@ -95,10 +101,10 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
   }
 
   private void disposeAllPlayers() {
-    for (int i = 0; i < videoPlayers.size(); i++) {
-      videoPlayers.valueAt(i).dispose();
-    }
-    videoPlayers.clear();
+//    for (int i = 0; i < videoPlayers.size(); i++) {
+//      videoPlayers.valueAt(i).dispose();
+//    }
+//    videoPlayers.clear();
   }
 
   private void onDestroy() {
@@ -114,7 +120,14 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
     disposeAllPlayers();
   }
 
-  public TextureMessage create(CreateMessage arg) {
+  public void setup(Context context) {
+    if (!isServiceBound) {
+      Intent intent = new Intent(context, VideoPlayerService.class);
+      context.bindService(intent, connection, Context.BIND_AUTO_CREATE);
+    }
+  }
+
+  public TextureMessage create(Context context, CreateMessage arg) {
     TextureRegistry.SurfaceTextureEntry handle =
         flutterState.textureRegistry.createSurfaceTexture();
     EventChannel eventChannel =
@@ -138,7 +151,6 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
               "asset:///" + assetLookupKey,
               null,
               options);
-      videoPlayers.put(handle.id(), player);
     } else {
       player =
           new VideoPlayer(
@@ -148,8 +160,8 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
               arg.getUri(),
               arg.getFormatHint(),
               options);
-      videoPlayers.put(handle.id(), player);
     }
+    service.putPlayer(handle.id(), player);
 
     TextureMessage result = new TextureMessage();
     result.setTextureId(handle.id());
@@ -157,47 +169,35 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
   }
 
   public void dispose(TextureMessage arg) {
-    VideoPlayer player = videoPlayers.get(arg.getTextureId());
-    player.dispose();
-    videoPlayers.remove(arg.getTextureId());
+    service.dispose(arg.getTextureId());
   }
 
   public void setLooping(LoopingMessage arg) {
-    VideoPlayer player = videoPlayers.get(arg.getTextureId());
-    player.setLooping(arg.getIsLooping());
+    service.setLooping(arg.getTextureId(), arg.getIsLooping());
   }
 
   public void setVolume(VolumeMessage arg) {
-    VideoPlayer player = videoPlayers.get(arg.getTextureId());
-    player.setVolume(arg.getVolume());
+    service.setVolume(arg.getTextureId(), arg.getVolume());
   }
 
   public void setPlaybackSpeed(PlaybackSpeedMessage arg) {
-    VideoPlayer player = videoPlayers.get(arg.getTextureId());
-    player.setPlaybackSpeed(arg.getSpeed());
+    service.setPlaybackSpeed(arg.getTextureId(), arg.getSpeed());
   }
 
   public void play(TextureMessage arg) {
-    VideoPlayer player = videoPlayers.get(arg.getTextureId());
-    player.play();
+    service.play(arg.getTextureId());
   }
 
   public PositionMessage position(TextureMessage arg) {
-    VideoPlayer player = videoPlayers.get(arg.getTextureId());
-    PositionMessage result = new PositionMessage();
-    result.setPosition(player.getPosition());
-    player.sendBufferingUpdate();
-    return result;
+    return service.position(arg.getTextureId());
   }
 
   public void seekTo(PositionMessage arg) {
-    VideoPlayer player = videoPlayers.get(arg.getTextureId());
-    player.seekTo(arg.getPosition().intValue());
+    service.seekTo(arg.getTextureId(), arg.getPosition().intValue());
   }
 
   public void pause(TextureMessage arg) {
-    VideoPlayer player = videoPlayers.get(arg.getTextureId());
-    player.pause();
+    service.pause(arg.getTextureId());
   }
 
   @Override
@@ -234,11 +234,24 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
     }
 
     void startListening(VideoPlayerPlugin methodCallHandler, BinaryMessenger messenger) {
-      VideoPlayerApi.setup(messenger, methodCallHandler);
+      VideoPlayerApi.setup(applicationContext, messenger, methodCallHandler);
     }
 
     void stopListening(BinaryMessenger messenger) {
-      VideoPlayerApi.setup(messenger, null);
+      VideoPlayerApi.setup(applicationContext, messenger, null);
     }
   }
+
+  private ServiceConnection connection = new ServiceConnection() {
+    @Override
+    public void onServiceConnected(ComponentName componentName, IBinder iBinder) {
+      service = ((VideoPlayerService.VideoPlayerBinder) iBinder).getService();
+      isServiceBound = true;
+    }
+
+    @Override
+    public void onServiceDisconnected(ComponentName componentName) {
+      isServiceBound = false;
+    }
+  };
 }
