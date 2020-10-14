@@ -61,6 +61,9 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
     private VideoPlayerService service;
     private boolean isServiceBound = false;
 
+    private MediaSessionCompat mediaSession;
+    private MediaSessionConnector mediaSessionConnector;
+
     private PlayerNotificationManager notificationManager;
     /**
      * Register this with the v2 embedding for the plugin to respond to lifecycle callbacks.
@@ -146,6 +149,9 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
     }
 
     public void setup(Context context) {
+        mediaSession = new MediaSessionCompat(context, "sample");
+        mediaSessionConnector = new MediaSessionConnector(mediaSession);
+
         if (!isServiceBound) {
             Intent intent = new Intent(context, VideoPlayerService.class);
             boolean bindingResult = context.bindService(intent, connection, Context.BIND_AUTO_CREATE);
@@ -202,6 +208,8 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
                             options);
         }
         service.putPlayer(handle.id(), player);
+        mediaSessionConnector.setPlayer(player.exoPlayer);
+        mediaSession.setActive(true);
 
         notificationManager.setPlayer(player.exoPlayer);
 
@@ -316,19 +324,11 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
                         }
                     }
             );
+            notificationManager.setMediaSessionToken(mediaSession.getSessionToken());
             service.startForeground(
                     1,
                     new NotificationCompat
                             .Builder(service, "channel")
-//                            .setStyle(
-//                                    new MediaStyle()
-//                                            .setMediaSession(mediaSession.getSessionToken())
-//                            )
-//                            .setOngoing(true)
-//                            .setContentTitle("Title")
-//                            .setContentText("Text")
-//                            .setSmallIcon(R.drawable.exo_notification_small_icon)
-//                            .setLargeIcon(BitmapFactory.decodeResource(service.getResources(), R.drawable.exo_controls_play))
                             .build()
             );
         }
