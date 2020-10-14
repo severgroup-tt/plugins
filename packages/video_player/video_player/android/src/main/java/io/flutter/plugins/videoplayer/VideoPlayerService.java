@@ -2,13 +2,29 @@ package io.flutter.plugins.videoplayer;
 
 import android.app.Service;
 import android.content.Intent;
+import android.media.MediaScannerConnection;
+import android.media.session.MediaSession;
 import android.os.Binder;
+import android.os.Bundle;
 import android.os.IBinder;
+import android.support.v4.media.MediaBrowserCompat;
+import android.support.v4.media.session.MediaSessionCompat;
 import android.util.LongSparseArray;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.media.MediaBrowserServiceCompat;
+
+import java.util.List;
 
 public class VideoPlayerService extends Service {
 
     private final LongSparseArray<VideoPlayer> videoPlayers = new LongSparseArray<>();
+    private long lastTextureId;
+
+    private VideoPlayer getLastPlayer() {
+        return videoPlayers.get(lastTextureId);
+    }
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -22,14 +38,23 @@ public class VideoPlayerService extends Service {
 
     public void putPlayer(Long textureId, VideoPlayer player) {
         videoPlayers.put(textureId, player);
+        lastTextureId = textureId;
     }
 
     public void play(Long textureId) {
         videoPlayers.get(textureId).play();
     }
 
+    public void play() {
+        getLastPlayer().play();
+    }
+
     public void pause(Long textureId) {
         videoPlayers.get(textureId).pause();
+    }
+
+    public void pause() {
+        getLastPlayer().pause();
     }
 
     public void setLooping(Long textureId, boolean isLooping) {

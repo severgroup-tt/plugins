@@ -4,6 +4,7 @@
 package io.flutter.plugins.videoplayer;
 
 import android.content.Context;
+import android.util.Log;
 
 import io.flutter.plugin.common.BasicMessageChannel;
 import io.flutter.plugin.common.BinaryMessenger;
@@ -333,6 +334,8 @@ public class Messages {
 
     /** Sets up an instance of `VideoPlayerApi` to handle messages through the `binaryMessenger` */
     static void setup(Context context, BinaryMessenger binaryMessenger, VideoPlayerApi api) {
+      Log.i("ForegroundPlayback", "setup plugin");
+
       api.setup(context);
 
       {
