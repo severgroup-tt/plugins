@@ -13,23 +13,22 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.os.Build;
 import android.os.IBinder;
-import android.support.v4.media.MediaMetadataCompat;
 import android.support.v4.media.session.MediaSessionCompat;
-import android.support.v4.media.session.PlaybackStateCompat;
 import android.util.Log;
-import android.util.LongSparseArray;
 
-import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
-import androidx.core.graphics.BitmapCompat;
-import androidx.media.app.NotificationCompat.MediaStyle;
 
+import com.google.android.exoplayer2.DefaultControlDispatcher;
 import com.google.android.exoplayer2.Player;
 import com.google.android.exoplayer2.ext.mediasession.MediaSessionConnector;
 import com.google.android.exoplayer2.ui.PlayerNotificationManager;
+
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
+
+import javax.net.ssl.HttpsURLConnection;
 
 import io.flutter.embedding.engine.loader.FlutterLoader;
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
@@ -44,11 +43,6 @@ import io.flutter.plugins.videoplayer.Messages.TextureMessage;
 import io.flutter.plugins.videoplayer.Messages.VideoPlayerApi;
 import io.flutter.plugins.videoplayer.Messages.VolumeMessage;
 import io.flutter.view.TextureRegistry;
-
-import java.security.KeyManagementException;
-import java.security.NoSuchAlgorithmException;
-
-import javax.net.ssl.HttpsURLConnection;
 
 /**
  * Android platform implementation of the VideoPlayerPlugin.
@@ -65,6 +59,7 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
     private MediaSessionConnector mediaSessionConnector;
 
     private PlayerNotificationManager notificationManager;
+
     /**
      * Register this with the v2 embedding for the plugin to respond to lifecycle callbacks.
      */
@@ -207,7 +202,7 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
                             arg.getFormatHint(),
                             options);
         }
-        service.putPlayer(handle.id(), player);
+        service.putPlayer(handle.id(), player, arg.getTitle());
         mediaSessionConnector.setPlayer(player.exoPlayer);
         mediaSession.setActive(true);
 
@@ -305,7 +300,7 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
 
                         @Override
                         public CharSequence getCurrentContentTitle(Player player) {
-                            return "Title";
+                            return service.getTitle();
                         }
 
                         @Override
@@ -324,6 +319,7 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
                         }
                     }
             );
+            notificationManager.setControlDispatcher(new DefaultControlDispatcher(0, 0));
             notificationManager.setMediaSessionToken(mediaSession.getSessionToken());
             service.startForeground(
                     1,
@@ -338,17 +334,4 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
             isServiceBound = false;
         }
     };
-
-    public class VideoPlayerCallback extends MediaSessionCompat.Callback {
-
-        @Override
-        public void onPlay() {
-            service.play();
-        }
-
-        @Override
-        public void onPause() {
-            service.pause();
-        }
-    }
 }

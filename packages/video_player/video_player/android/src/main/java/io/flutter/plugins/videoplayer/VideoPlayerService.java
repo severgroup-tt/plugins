@@ -21,6 +21,7 @@ public class VideoPlayerService extends Service {
 
     private final LongSparseArray<VideoPlayer> videoPlayers = new LongSparseArray<>();
     private long lastTextureId;
+    private String title;
 
     private VideoPlayer getLastPlayer() {
         return videoPlayers.get(lastTextureId);
@@ -36,9 +37,14 @@ public class VideoPlayerService extends Service {
         return START_STICKY;
     }
 
-    public void putPlayer(Long textureId, VideoPlayer player) {
+    public String getTitle() {
+        return title;
+    }
+
+    public void putPlayer(Long textureId, VideoPlayer player, String title) {
         videoPlayers.put(textureId, player);
         lastTextureId = textureId;
+        this.title = title;
     }
 
     public void play(Long textureId) {
