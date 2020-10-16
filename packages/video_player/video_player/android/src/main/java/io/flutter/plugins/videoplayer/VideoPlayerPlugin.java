@@ -34,6 +34,7 @@ import io.flutter.embedding.engine.loader.FlutterLoader;
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
 import io.flutter.plugin.common.BinaryMessenger;
 import io.flutter.plugin.common.EventChannel;
+import io.flutter.plugin.common.MethodChannel;
 import io.flutter.plugins.videoplayer.Messages.CreateMessage;
 import io.flutter.plugins.videoplayer.Messages.LoopingMessage;
 import io.flutter.plugins.videoplayer.Messages.MixWithOthersMessage;
@@ -51,6 +52,8 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
     private static final String TAG = "VideoPlayerPlugin";
     private FlutterState flutterState;
     private VideoPlayerOptions options = new VideoPlayerOptions();
+
+    private MethodChannel callbackMethodChannel;
 
     private VideoPlayerService service;
     private boolean isServiceBound = false;
@@ -115,6 +118,11 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
                         flutterLoader::getLookupKeyForAsset,
                         binding.getTextureRegistry());
         flutterState.startListening(this, binding.getBinaryMessenger());
+
+        this.callbackMethodChannel = new MethodChannel(
+                flutterState.binaryMessenger,
+                "flutter.io/videoPlayer/callback"
+        );
     }
 
     @Override
@@ -139,33 +147,30 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
         disposeAllPlayers();
     }
 
-    public void initialize() {
-        disposeAllPlayers();
-    }
-
-    public void setup(Context context) {
-        mediaSession = new MediaSessionCompat(context, "sample");
+    public void initialize(Context context, String notificationChannelId, String notificationChannelName) {
+        mediaSession = new MediaSessionCompat(context, context.getPackageName());
         mediaSessionConnector = new MediaSessionConnector(mediaSession);
 
         if (!isServiceBound) {
             Intent intent = new Intent(context, VideoPlayerService.class);
-            boolean bindingResult = context.bindService(intent, connection, Context.BIND_AUTO_CREATE);
-            Log.i("ForegroundPlayback", "service binding result: " + bindingResult);
+            context.bindService(intent, connection, Context.BIND_AUTO_CREATE);
         }
 
-        createNotificationChannel(context, "channel", "player channel");
+        createNotificationChannel(context, notificationChannelId, notificationChannelName);
+        disposeAllPlayers();
     }
 
-    private String createNotificationChannel(Context context, String channelId, String channelName) {
-        NotificationChannel chan = new NotificationChannel(
+    private void createNotificationChannel(Context context, String channelId, String channelName) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
+
+        NotificationChannel channel = new NotificationChannel(
                 channelId,
                 channelName,
                 NotificationManager.IMPORTANCE_NONE
         );
-        chan.setLockscreenVisibility(Notification.VISIBILITY_PRIVATE);
+        channel.setLockscreenVisibility(Notification.VISIBILITY_PRIVATE);
         NotificationManager service = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
-        service.createNotificationChannel(chan);
-        return channelId;
+        service.createNotificationChannel(channel);
     }
 
     public TextureMessage create(CreateMessage arg) {
@@ -319,7 +324,21 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
                         }
                     }
             );
-            notificationManager.setControlDispatcher(new DefaultControlDispatcher(0, 0));
+            notificationManager.setControlDispatcher(new DefaultControlDispatcher(0, 0) {
+                @Override
+                public boolean dispatchPrevious(Player player) {
+                    Log.i("ForegroundPlayback", "dispatchPrevious()");
+                    callbackMethodChannel.invokeMethod("onPreviousTap", null);
+                    return super.dispatchPrevious(player);
+                }
+
+                @Override
+                public boolean dispatchNext(Player player) {
+                    Log.i("ForegroundPlayback", "dispatchNext()");
+                    callbackMethodChannel.invokeMethod("onNextTap", null);
+                    return super.dispatchNext(player);
+                }
+            });
             notificationManager.setMediaSessionToken(mediaSession.getSessionToken());
             service.startForeground(
                     1,
