@@ -969,7 +969,7 @@ class RemotePlayerControlsController {
       "title": info.title,
       "album_title": info.albumTitle,
     };
-    unawaited(_remotePlayerControlsMethodChannel.invokeMethod("onTrackUpdate", params));
+    _remotePlayerControlsMethodChannel.invokeMethod("onTrackUpdate", params);
 
     _videoPlayerController?.removeListener(_onVideoPlayerValueUpdate);
     _videoPlayerController = info.videoPlayerController;
@@ -983,7 +983,7 @@ class RemotePlayerControlsController {
 
   void _onVideoPlayerValueUpdate() {
     if (_videoPlayerController.value.initialized && _previousVideoPlayerValue?.initialized != true) {
-      unawaited(_remotePlayerControlsMethodChannel.invokeMethod("onTrackInitialized"));
+      _remotePlayerControlsMethodChannel.invokeMethod("onTrackInitialized");
     }
     _previousVideoPlayerValue = _videoPlayerController.value;
   }
