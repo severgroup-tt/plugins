@@ -175,7 +175,7 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
   /// null. The [package] argument must be non-null when the asset comes from a
   /// package and null otherwise.
   VideoPlayerController.asset(this.dataSource,
-      {this.package, this.closedCaptionFile, this.videoPlayerOptions, this.notificationButtonsController})
+      {this.package, this.closedCaptionFile, this.videoPlayerOptions})
       : dataSourceType = DataSourceType.asset,
         formatHint = null,
         super(VideoPlayerValue(duration: null));
@@ -188,7 +188,7 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
   /// **Android only**: The [formatHint] option allows the caller to override
   /// the video format detection code.
   VideoPlayerController.network(this.dataSource,
-      {this.formatHint, this.closedCaptionFile, this.videoPlayerOptions, this.notificationButtonsController})
+      {this.formatHint, this.closedCaptionFile, this.videoPlayerOptions})
       : dataSourceType = DataSourceType.network,
         package = null,
         super(VideoPlayerValue(duration: null));
@@ -198,7 +198,7 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
   /// This will load the file from the file-URI given by:
   /// `'file://${file.path}'`.
   VideoPlayerController.file(File file,
-      {this.closedCaptionFile, this.videoPlayerOptions, this.notificationButtonsController})
+      {this.closedCaptionFile, this.videoPlayerOptions})
       : dataSource = 'file://${file.path}',
         dataSourceType = DataSourceType.file,
         package = null,
@@ -225,8 +225,6 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
   /// Only set for [asset] videos. The package that the asset was loaded from.
   final String package;
 
-  final NotificationButtonsController notificationButtonsController;
-
   /// Optional field to specify a file containing the closed
   /// captioning.
   ///
@@ -248,14 +246,6 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
 
   /// Attempts to open the given [dataSource] and load metadata about the video.
   Future<void> initialize() async {
-    MethodChannel("flutter.io/videoPlayer/callback")..setMethodCallHandler((call) async {
-      if (call.method == "onPreviousTap") {
-        notificationButtonsController?.onPreviousTap();
-      } else if (call.method == "onNextTap") {
-        notificationButtonsController?.onNextTap();
-      }
-    });
-
     _lifeCycleObserver = _VideoAppLifeCycleObserver(this);
     _lifeCycleObserver.initialize();
     _creatingCompleter = Completer<void>();
@@ -559,13 +549,13 @@ class _VideoAppLifeCycleObserver extends Object with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     switch (state) {
       case AppLifecycleState.paused:
-        // _wasPlayingBeforePause = _controller.value.isPlaying;
-        // _controller.pause();
+        _wasPlayingBeforePause = _controller.value.isPlaying;
+        _controller.pause();
         break;
       case AppLifecycleState.resumed:
-        // if (_wasPlayingBeforePause) {
-        //   _controller.play();
-        // }
+        if (_wasPlayingBeforePause) {
+          _controller.play();
+        }
         break;
       default:
     }
@@ -926,9 +916,4 @@ class ClosedCaption extends StatelessWidget {
       ),
     );
   }
-}
-
-abstract class NotificationButtonsController {
-  void onNextTap();
-  void onPreviousTap();
 }
