@@ -923,3 +923,53 @@ class ClosedCaption extends StatelessWidget {
     );
   }
 }
+
+class _RemotePlayerControlsController {
+  final VoidCallback onNextTap;
+  final VoidCallback onPreviousTap;
+
+  _RemotePlayerControlsController({
+    @required this.onNextTap,
+    @required this.onPreviousTap,
+  }) {
+    _remotePlayerControlsMethodChannel.setMethodCallHandler(_remotePlayerControlsMethodCallHandler);
+  }
+
+  VideoPlayerController _videoPlayerController;
+  VideoPlayerValue _previousVideoPlayerValue;
+  final _remotePlayerControlsMethodChannel = MethodChannel('flutter.io/videoPlayer/callback');
+
+  Future<void> _remotePlayerControlsMethodCallHandler(MethodCall call) async {
+    if (call.method == "onNextTap") {
+      onNextTap();
+    } else if (call.method == "onPreviousTap") {
+      onPreviousTap();
+    }
+  }
+
+  void updateWithNewTrackInfo(_RemotePlayerControlsControllerTrackInfo info) {
+    final params = <String, dynamic>{
+      "has_next": info.hasNext,
+      "has_previous": info.hasPrevious,
+      "title": info.title,
+      "album_title": info.albumTitle,
+    };
+    unawaited(_remotePlayerControlsMethodChannel.invokeMethod("onTrackUpdate", params));
+
+    _videoPlayerController?.removeListener(_onVideoPlayerValueUpdate);
+    _videoPlayerController = info.videoPlayerController;
+    _videoPlayerController.addListener(_onVideoPlayerValueUpdate);
+    _previousVideoPlayerValue = null;
+  }
+
+  void dispose() {
+    _videoPlayerController.removeListener(_onVideoPlayerValueUpdate);
+  }
+
+  void _onVideoPlayerValueUpdate() {
+    if (_videoPlayerController.value.initialized && _previousVideoPlayerValue?.initialized != true) {
+      unawaited(_remotePlayerControlsMethodChannel.invokeMethod("onTrackInitialized"));
+    }
+    _previousVideoPlayerValue = _videoPlayerController.value;
+  }
+}
