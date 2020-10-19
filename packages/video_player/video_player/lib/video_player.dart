@@ -923,3 +923,61 @@ class ClosedCaption extends StatelessWidget {
     );
   }
 }
+
+class TrackMeta {
+  final bool hasNext;
+  final bool hasPrevious;
+  final String title;
+  final String albumTitle;
+  final double duration;
+  final double position;
+
+  TrackMeta({
+    @required this.hasNext,
+    @required this.hasPrevious,
+    @required this.title,
+    @required this.albumTitle,
+    @required this.duration,
+    @required this.position,
+  });
+}
+
+class RemotePlayerControlsController {
+  static const _methodChannelName = "flutter.io/videoPlayer/callback";
+
+  static const onNextTapMethodName = "onNextTap";
+  static const onPreviousTapMethodName = "onPreviousTap";
+  static const setTrackMetaMethodName = "setTrackMeta";
+
+  final VoidCallback onNextTap;
+  final VoidCallback onPreviousTap;
+
+  final _remotePlayerControlsMethodChannel = MethodChannel(_methodChannelName);
+
+  RemotePlayerControlsController({
+    @required this.onNextTap,
+    @required this.onPreviousTap,
+  }) {
+    _remotePlayerControlsMethodChannel.setMethodCallHandler(_handleMethodCall);
+  }
+
+  void setTrackMeta(TrackMeta meta) {
+    final params = <String, dynamic>{
+      "has_next": meta.hasNext,
+      "has_previous": meta.hasPrevious,
+      "title": meta.title,
+      "album_title": meta.albumTitle,
+      "duration": meta.duration,
+      "position": meta.position,
+    };
+    _remotePlayerControlsMethodChannel.invokeMethod(setTrackMetaMethodName, params);
+  }
+
+  Future<dynamic> _handleMethodCall(MethodCall call) async {
+    if (call.method == onNextTapMethodName) {
+      onNextTap();
+    } else if (call.method == onPreviousTapMethodName) {
+      onPreviousTap();
+    }
+  }
+}
