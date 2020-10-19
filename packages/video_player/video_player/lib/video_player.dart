@@ -172,7 +172,7 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
   /// The name of the asset is given by the [dataSource] argument and must not be
   /// null. The [package] argument must be non-null when the asset comes from a
   /// package and null otherwise.
-  VideoPlayerController.asset(this.dataSource, {this.package, this.closedCaptionFile, this.videoPlayerOptions, this.isBackgroundPlaybackEnabled = false, this.remotePlayerControlsController})
+  VideoPlayerController.asset(this.dataSource, {this.package, this.closedCaptionFile, this.videoPlayerOptions, this.isBackgroundPlaybackEnabled = false})
       : dataSourceType = DataSourceType.asset,
         formatHint = null,
         super(VideoPlayerValue(duration: null));
@@ -184,7 +184,7 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
   /// null.
   /// **Android only**: The [formatHint] option allows the caller to override
   /// the video format detection code.
-  VideoPlayerController.network(this.dataSource, {this.formatHint, this.closedCaptionFile, this.videoPlayerOptions, this.isBackgroundPlaybackEnabled = false, this.remotePlayerControlsController})
+  VideoPlayerController.network(this.dataSource, {this.formatHint, this.closedCaptionFile, this.videoPlayerOptions, this.isBackgroundPlaybackEnabled = false})
       : dataSourceType = DataSourceType.network,
         package = null,
         super(VideoPlayerValue(duration: null));
@@ -193,7 +193,7 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
   ///
   /// This will load the file from the file-URI given by:
   /// `'file://${file.path}'`.
-  VideoPlayerController.file(File file, {this.closedCaptionFile, this.videoPlayerOptions, this.isBackgroundPlaybackEnabled = false, this.remotePlayerControlsController})
+  VideoPlayerController.file(File file, {this.closedCaptionFile, this.videoPlayerOptions, this.isBackgroundPlaybackEnabled = false})
       : dataSource = 'file://${file.path}',
         dataSourceType = DataSourceType.file,
         package = null,
@@ -231,15 +231,12 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
   /// Equals false by default.
   final bool isBackgroundPlaybackEnabled;
 
-  final RemotePlayerControlsController remotePlayerControlsController;
-
   ClosedCaptionFile _closedCaptionFile;
   Timer _timer;
   bool _isDisposed = false;
   Completer<void> _creatingCompleter;
   StreamSubscription<dynamic> _eventSubscription;
   _VideoAppLifeCycleObserver _lifeCycleObserver;
-  VideoPlayerValue _previousVideoPlayerValue;
 
   /// This is just exposed for testing. It shouldn't be used by anyone depending
   /// on the plugin.
@@ -341,15 +338,11 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
         .videoEventsFor(_textureId)
         .listen(eventListener, onError: errorListener);
 
-    remotePlayerControlsController.addListener(_onTrackChanged);
-
     return initializingCompleter.future;
   }
 
   @override
   Future<void> dispose() async {
-    remotePlayerControlsController.removeListener(_onTrackChanged);
-
     if (_creatingCompleter != null) {
       await _creatingCompleter.future;
       if (!_isDisposed) {
@@ -541,19 +534,6 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
   void _updatePosition(Duration position) {
     value = value.copyWith(position: position);
     value = value.copyWith(caption: _getCaptionAt(position));
-  }
-
-  void _listenForTrackInitialization() {
-    if (value.initialized && _previousVideoPlayerValue?.initialized != true) {
-      remotePlayerControlsController.onTrackInitialized();
-    }
-    _previousVideoPlayerValue = value;
-  }
-
-  void _onTrackChanged() {
-    removeListener(_listenForTrackInitialization);
-    addListener(_listenForTrackInitialization);
-    _previousVideoPlayerValue = null;
   }
 }
 
@@ -943,12 +923,16 @@ class TrackMeta {
   final bool hasPrevious;
   final String title;
   final String albumTitle;
+  final double duration;
+  final double position;
 
   TrackMeta({
     @required this.hasNext,
     @required this.hasPrevious,
     @required this.title,
     @required this.albumTitle,
+    @required this.duration,
+    @required this.position,
   });
 }
 
@@ -958,12 +942,10 @@ class RemotePlayerControlsController {
   static const onNextTapMethodName = "onNextTap";
   static const onPreviousTapMethodName = "onPreviousTap";
   static const setTrackMetaMethodName = "setTrackMeta";
-  static const onTrackInitializedMethodName = "onTrackInitialized";
 
   final VoidCallback onNextTap;
   final VoidCallback onPreviousTap;
 
-  List<VoidCallback> _listeners;
   final _remotePlayerControlsMethodChannel = MethodChannel(_methodChannelName);
 
   RemotePlayerControlsController({
@@ -979,16 +961,11 @@ class RemotePlayerControlsController {
       "has_previous": meta.hasPrevious,
       "title": meta.title,
       "album_title": meta.albumTitle,
+      "duration": meta.duration,
+      "position": meta.position,
     };
     _remotePlayerControlsMethodChannel.invokeMethod(setTrackMetaMethodName, params);
-    _listeners.forEach((element) => element());
   }
-
-  void onTrackInitialized() => _remotePlayerControlsMethodChannel.invokeMethod(onTrackInitializedMethodName);
-
-  void addListener(VoidCallback listener) => _listeners.add(listener);
-
-  void removeListener(VoidCallback listener) => _listeners.remove(listener);
 
   Future<dynamic> _handleMethodCall(MethodCall call) async {
     if (call.method == onNextTapMethodName) {
