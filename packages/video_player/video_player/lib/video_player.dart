@@ -11,15 +11,14 @@ import 'package:flutter/services.dart';
 import 'package:meta/meta.dart';
 import 'package:video_player_platform_interface/video_player_platform_interface.dart';
 
-export 'package:video_player_platform_interface/video_player_platform_interface.dart'
-    show DurationRange, DataSourceType, VideoFormat, VideoPlayerOptions;
+export 'package:video_player_platform_interface/video_player_platform_interface.dart' show DurationRange, DataSourceType, VideoFormat, VideoPlayerOptions;
 
 import 'src/closed_caption_file.dart';
 export 'src/closed_caption_file.dart';
 
 final VideoPlayerPlatform _videoPlayerPlatform = VideoPlayerPlatform.instance
-  // This will clear all open videos on the platform when a full restart is
-  // performed.
+// This will clear all open videos on the platform when a full restart is
+// performed.
   ..init();
 
 /// The duration, current position, buffering state, error state and settings
@@ -46,8 +45,7 @@ class VideoPlayerValue {
 
   /// Returns an instance with a `null` [Duration] and the given
   /// [errorDescription].
-  VideoPlayerValue.erroneous(String errorDescription)
-      : this(duration: null, errorDescription: errorDescription);
+  VideoPlayerValue.erroneous(String errorDescription) : this(duration: null, errorDescription: errorDescription);
 
   /// The total duration of the video.
   ///
@@ -174,8 +172,7 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
   /// The name of the asset is given by the [dataSource] argument and must not be
   /// null. The [package] argument must be non-null when the asset comes from a
   /// package and null otherwise.
-  VideoPlayerController.asset(this.dataSource,
-      {this.package, this.closedCaptionFile, this.videoPlayerOptions, this.isBackgroundPlaybackEnabled = false})
+  VideoPlayerController.asset(this.dataSource, {this.package, this.closedCaptionFile, this.videoPlayerOptions, this.isBackgroundPlaybackEnabled = false, this.remotePlayerControlsController})
       : dataSourceType = DataSourceType.asset,
         formatHint = null,
         super(VideoPlayerValue(duration: null));
@@ -187,8 +184,7 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
   /// null.
   /// **Android only**: The [formatHint] option allows the caller to override
   /// the video format detection code.
-  VideoPlayerController.network(this.dataSource,
-      {this.formatHint, this.closedCaptionFile, this.videoPlayerOptions, this.isBackgroundPlaybackEnabled = false})
+  VideoPlayerController.network(this.dataSource, {this.formatHint, this.closedCaptionFile, this.videoPlayerOptions, this.isBackgroundPlaybackEnabled = false, this.remotePlayerControlsController})
       : dataSourceType = DataSourceType.network,
         package = null,
         super(VideoPlayerValue(duration: null));
@@ -197,8 +193,7 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
   ///
   /// This will load the file from the file-URI given by:
   /// `'file://${file.path}'`.
-  VideoPlayerController.file(File file,
-      {this.closedCaptionFile, this.videoPlayerOptions, this.isBackgroundPlaybackEnabled = false})
+  VideoPlayerController.file(File file, {this.closedCaptionFile, this.videoPlayerOptions, this.isBackgroundPlaybackEnabled = false, this.remotePlayerControlsController})
       : dataSource = 'file://${file.path}',
         dataSourceType = DataSourceType.file,
         package = null,
@@ -236,12 +231,15 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
   /// Equals false by default.
   final bool isBackgroundPlaybackEnabled;
 
+  final RemotePlayerControlsController remotePlayerControlsController;
+
   ClosedCaptionFile _closedCaptionFile;
   Timer _timer;
   bool _isDisposed = false;
   Completer<void> _creatingCompleter;
   StreamSubscription<dynamic> _eventSubscription;
   _VideoAppLifeCycleObserver _lifeCycleObserver;
+  VideoPlayerValue _previousVideoPlayerValue;
 
   /// This is just exposed for testing. It shouldn't be used by anyone depending
   /// on the plugin.
@@ -342,11 +340,16 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
     _eventSubscription = _videoPlayerPlatform
         .videoEventsFor(_textureId)
         .listen(eventListener, onError: errorListener);
+
+    remotePlayerControlsController.addListener(_onTrackChanged);
+
     return initializingCompleter.future;
   }
 
   @override
   Future<void> dispose() async {
+    remotePlayerControlsController.removeListener(_onTrackChanged);
+
     if (_creatingCompleter != null) {
       await _creatingCompleter.future;
       if (!_isDisposed) {
@@ -539,6 +542,19 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
     value = value.copyWith(position: position);
     value = value.copyWith(caption: _getCaptionAt(position));
   }
+
+  void _listenForTrackInitialization() {
+    if (value.initialized && _previousVideoPlayerValue?.initialized != true) {
+      remotePlayerControlsController.onTrackInitialized();
+    }
+    _previousVideoPlayerValue = value;
+  }
+
+  void _onTrackChanged() {
+    removeListener(_listenForTrackInitialization);
+    addListener(_listenForTrackInitialization);
+    _previousVideoPlayerValue = null;
+  }
 }
 
 class _VideoAppLifeCycleObserver extends Object with WidgetsBindingObserver {
@@ -625,9 +641,7 @@ class _VideoPlayerState extends State<VideoPlayer> {
 
   @override
   Widget build(BuildContext context) {
-    return _textureId == null
-        ? Container()
-        : _videoPlayerPlatform.buildView(_textureId);
+    return _textureId == null ? Container() : _videoPlayerPlatform.buildView(_textureId);
   }
 }
 
@@ -924,67 +938,63 @@ class ClosedCaption extends StatelessWidget {
   }
 }
 
-class RemotePlayerControlsControllerTrackInfo {
+class TrackMeta {
   final bool hasNext;
   final bool hasPrevious;
   final String title;
   final String albumTitle;
-  final VideoPlayerController videoPlayerController;
 
-  RemotePlayerControlsControllerTrackInfo({
+  TrackMeta({
     @required this.hasNext,
     @required this.hasPrevious,
     @required this.title,
     @required this.albumTitle,
-    @required this.videoPlayerController,
   });
 }
 
 class RemotePlayerControlsController {
+  static const _methodChannelName = "flutter.io/videoPlayer/callback";
+
+  static const onNextTapMethodName = "onNextTap";
+  static const onPreviousTapMethodName = "onPreviousTap";
+  static const setTrackMetaMethodName = "setTrackMeta";
+  static const onTrackInitializedMethodName = "onTrackInitialized";
+
   final VoidCallback onNextTap;
   final VoidCallback onPreviousTap;
-  final _remotePlayerControlsMethodChannel = MethodChannel('flutter.io/videoPlayer/callback');
-  VideoPlayerController _videoPlayerController;
-  VideoPlayerValue _previousVideoPlayerValue;
+
+  List<VoidCallback> _listeners;
+  final _remotePlayerControlsMethodChannel = MethodChannel(_methodChannelName);
 
   RemotePlayerControlsController({
     @required this.onNextTap,
     @required this.onPreviousTap,
   }) {
-    _remotePlayerControlsMethodChannel.setMethodCallHandler(_remotePlayerControlsMethodCallHandler);
+    _remotePlayerControlsMethodChannel.setMethodCallHandler(_handleMethodCall);
   }
 
-  Future<void> _remotePlayerControlsMethodCallHandler(MethodCall call) async {
-    if (call.method == "onNextTap") {
+  void setTrackMeta(TrackMeta meta) {
+    final params = <String, dynamic>{
+      "has_next": meta.hasNext,
+      "has_previous": meta.hasPrevious,
+      "title": meta.title,
+      "album_title": meta.albumTitle,
+    };
+    _remotePlayerControlsMethodChannel.invokeMethod(setTrackMetaMethodName, params);
+    _listeners.forEach((element) => element());
+  }
+
+  void onTrackInitialized() => _remotePlayerControlsMethodChannel.invokeMethod(onTrackInitializedMethodName);
+
+  void addListener(VoidCallback listener) => _listeners.add(listener);
+
+  void removeListener(VoidCallback listener) => _listeners.remove(listener);
+
+  Future<dynamic> _handleMethodCall(MethodCall call) async {
+    if (call.method == onNextTapMethodName) {
       onNextTap();
-    } else if (call.method == "onPreviousTap") {
+    } else if (call.method == onPreviousTapMethodName) {
       onPreviousTap();
     }
-  }
-
-  void updateWithNewTrackInfo(RemotePlayerControlsControllerTrackInfo info) {
-    final params = <String, dynamic>{
-      "has_next": info.hasNext,
-      "has_previous": info.hasPrevious,
-      "title": info.title,
-      "album_title": info.albumTitle,
-    };
-    _remotePlayerControlsMethodChannel.invokeMethod("onTrackUpdate", params);
-
-    _videoPlayerController?.removeListener(_onVideoPlayerValueUpdate);
-    _videoPlayerController = info.videoPlayerController;
-    _videoPlayerController.addListener(_onVideoPlayerValueUpdate);
-    _previousVideoPlayerValue = null;
-  }
-
-  void dispose() {
-    _videoPlayerController.removeListener(_onVideoPlayerValueUpdate);
-  }
-
-  void _onVideoPlayerValueUpdate() {
-    if (_videoPlayerController.value.initialized && _previousVideoPlayerValue?.initialized != true) {
-      _remotePlayerControlsMethodChannel.invokeMethod("onTrackInitialized");
-    }
-    _previousVideoPlayerValue = _videoPlayerController.value;
   }
 }
