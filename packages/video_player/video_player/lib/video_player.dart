@@ -11,14 +11,15 @@ import 'package:flutter/services.dart';
 import 'package:meta/meta.dart';
 import 'package:video_player_platform_interface/video_player_platform_interface.dart';
 
-export 'package:video_player_platform_interface/video_player_platform_interface.dart' show DurationRange, DataSourceType, VideoFormat, VideoPlayerOptions;
+export 'package:video_player_platform_interface/video_player_platform_interface.dart'
+    show DurationRange, DataSourceType, VideoFormat, VideoPlayerOptions;
 
 import 'src/closed_caption_file.dart';
 export 'src/closed_caption_file.dart';
 
 final VideoPlayerPlatform _videoPlayerPlatform = VideoPlayerPlatform.instance
-// This will clear all open videos on the platform when a full restart is
-// performed.
+  // This will clear all open videos on the platform when a full restart is
+  // performed.
   ..init();
 
 /// The duration, current position, buffering state, error state and settings
@@ -45,7 +46,8 @@ class VideoPlayerValue {
 
   /// Returns an instance with a `null` [Duration] and the given
   /// [errorDescription].
-  VideoPlayerValue.erroneous(String errorDescription) : this(duration: null, errorDescription: errorDescription);
+  VideoPlayerValue.erroneous(String errorDescription)
+      : this(duration: null, errorDescription: errorDescription);
 
   /// The total duration of the video.
   ///
@@ -172,7 +174,8 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
   /// The name of the asset is given by the [dataSource] argument and must not be
   /// null. The [package] argument must be non-null when the asset comes from a
   /// package and null otherwise.
-  VideoPlayerController.asset(this.dataSource, {this.package, this.closedCaptionFile, this.videoPlayerOptions, this.isBackgroundPlaybackEnabled = false})
+  VideoPlayerController.asset(this.dataSource,
+      {this.package, this.closedCaptionFile, this.videoPlayerOptions, this.isBackgroundPlaybackEnabled = false})
       : dataSourceType = DataSourceType.asset,
         formatHint = null,
         super(VideoPlayerValue(duration: null));
@@ -184,7 +187,8 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
   /// null.
   /// **Android only**: The [formatHint] option allows the caller to override
   /// the video format detection code.
-  VideoPlayerController.network(this.dataSource, {this.formatHint, this.closedCaptionFile, this.videoPlayerOptions, this.isBackgroundPlaybackEnabled = false})
+  VideoPlayerController.network(this.dataSource,
+      {this.formatHint, this.closedCaptionFile, this.videoPlayerOptions, this.isBackgroundPlaybackEnabled = false})
       : dataSourceType = DataSourceType.network,
         package = null,
         super(VideoPlayerValue(duration: null));
@@ -193,7 +197,8 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
   ///
   /// This will load the file from the file-URI given by:
   /// `'file://${file.path}'`.
-  VideoPlayerController.file(File file, {this.closedCaptionFile, this.videoPlayerOptions, this.isBackgroundPlaybackEnabled = false})
+  VideoPlayerController.file(File file,
+      {this.closedCaptionFile, this.videoPlayerOptions, this.isBackgroundPlaybackEnabled = false})
       : dataSource = 'file://${file.path}',
         dataSourceType = DataSourceType.file,
         package = null,
@@ -337,7 +342,6 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
     _eventSubscription = _videoPlayerPlatform
         .videoEventsFor(_textureId)
         .listen(eventListener, onError: errorListener);
-
     return initializingCompleter.future;
   }
 
@@ -621,7 +625,9 @@ class _VideoPlayerState extends State<VideoPlayer> {
 
   @override
   Widget build(BuildContext context) {
-    return _textureId == null ? Container() : _videoPlayerPlatform.buildView(_textureId);
+    return _textureId == null
+        ? Container()
+        : _videoPlayerPlatform.buildView(_textureId);
   }
 }
 
