@@ -924,20 +924,35 @@ class ClosedCaption extends StatelessWidget {
   }
 }
 
-class _RemotePlayerControlsController {
+class RemotePlayerControlsControllerTrackInfo {
+  final bool hasNext;
+  final bool hasPrevious;
+  final String title;
+  final String albumTitle;
+  final VideoPlayerController videoPlayerController;
+
+  RemotePlayerControlsControllerTrackInfo({
+    @required this.hasNext,
+    @required this.hasPrevious,
+    @required this.title,
+    @required this.albumTitle,
+    @required this.videoPlayerController,
+  });
+}
+
+class RemotePlayerControlsController {
   final VoidCallback onNextTap;
   final VoidCallback onPreviousTap;
+  final _remotePlayerControlsMethodChannel = MethodChannel('flutter.io/videoPlayer/callback');
+  VideoPlayerController _videoPlayerController;
+  VideoPlayerValue _previousVideoPlayerValue;
 
-  _RemotePlayerControlsController({
+  RemotePlayerControlsController({
     @required this.onNextTap,
     @required this.onPreviousTap,
   }) {
     _remotePlayerControlsMethodChannel.setMethodCallHandler(_remotePlayerControlsMethodCallHandler);
   }
-
-  VideoPlayerController _videoPlayerController;
-  VideoPlayerValue _previousVideoPlayerValue;
-  final _remotePlayerControlsMethodChannel = MethodChannel('flutter.io/videoPlayer/callback');
 
   Future<void> _remotePlayerControlsMethodCallHandler(MethodCall call) async {
     if (call.method == "onNextTap") {
@@ -947,7 +962,7 @@ class _RemotePlayerControlsController {
     }
   }
 
-  void updateWithNewTrackInfo(_RemotePlayerControlsControllerTrackInfo info) {
+  void updateWithNewTrackInfo(RemotePlayerControlsControllerTrackInfo info) {
     final params = <String, dynamic>{
       "has_next": info.hasNext,
       "has_previous": info.hasPrevious,
