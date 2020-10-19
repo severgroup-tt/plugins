@@ -924,19 +924,17 @@ class ClosedCaption extends StatelessWidget {
   }
 }
 
-class RemotePlayerControlsControllerTrackInfo {
+class TrackMeta {
   final bool hasNext;
   final bool hasPrevious;
   final String title;
   final String albumTitle;
-  final VideoPlayerController videoPlayerController;
 
-  RemotePlayerControlsControllerTrackInfo({
+  TrackMeta({
     @required this.hasNext,
     @required this.hasPrevious,
     @required this.title,
     @required this.albumTitle,
-    @required this.videoPlayerController,
   });
 }
 
@@ -962,17 +960,16 @@ class RemotePlayerControlsController {
     }
   }
 
-  void updateWithNewTrackInfo(RemotePlayerControlsControllerTrackInfo info) {
+  void updateWithNewTrackMeta(TrackMeta meta, {@required VideoPlayerController videoPlayerController}) {
     final params = <String, dynamic>{
-      "has_next": info.hasNext,
-      "has_previous": info.hasPrevious,
-      "title": info.title,
-      "album_title": info.albumTitle,
+      "has_next": meta.hasNext,
+      "has_previous": meta.hasPrevious,
+      "title": meta.title,
+      "album_title": meta.albumTitle,
     };
     _remotePlayerControlsMethodChannel.invokeMethod("onTrackUpdate", params);
-
     _videoPlayerController?.removeListener(_onVideoPlayerValueUpdate);
-    _videoPlayerController = info.videoPlayerController;
+    _videoPlayerController = videoPlayerController;
     _videoPlayerController.addListener(_onVideoPlayerValueUpdate);
     _previousVideoPlayerValue = null;
   }
