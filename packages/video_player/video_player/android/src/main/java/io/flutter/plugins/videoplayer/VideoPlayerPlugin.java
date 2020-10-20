@@ -49,6 +49,8 @@ import io.flutter.view.TextureRegistry;
  * Android platform implementation of the VideoPlayerPlugin.
  */
 public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
+    public static final int PLAYER_NOTIFICATION_ID = 1;
+
     private static final String TAG = "VideoPlayerPlugin";
     private FlutterState flutterState;
     private VideoPlayerOptions options = new VideoPlayerOptions();
@@ -154,7 +156,7 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
         disposeAllPlayers();
     }
 
-    void initService(Context context, String notificationChannelId, String notificationChannelName) {
+    void initService(Context context) {
         mediaSession = new MediaSessionCompat(context, context.getPackageName());
         mediaSessionConnector = new MediaSessionConnector(mediaSession);
 
@@ -163,7 +165,11 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
             context.bindService(intent, connection, Context.BIND_AUTO_CREATE);
         }
 
-        createNotificationChannel(context, notificationChannelId, notificationChannelName);
+        createNotificationChannel(
+                context,
+                context.getString(R.string.player_notification_channel_id),
+                context.getString(R.string.player_notification_channel_name)
+        );
     }
 
     private void createNotificationChannel(Context context, String channelId, String channelName) {
@@ -181,9 +187,9 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
 
     public TextureMessage create(CreateMessage arg) {
         service.startForeground(
-                1,
+                PLAYER_NOTIFICATION_ID,
                 new NotificationCompat
-                        .Builder(service, "channel")
+                        .Builder(service, service.getString(R.string.player_notification_channel_id))
                         .build()
         );
 
@@ -298,7 +304,7 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
         }
 
         void startListening(VideoPlayerPlugin methodCallHandler, BinaryMessenger messenger) {
-            methodCallHandler.initService(applicationContext, "channel", "player");
+            methodCallHandler.initService(applicationContext);
             VideoPlayerApi.setup(applicationContext, messenger, methodCallHandler);
         }
 
@@ -316,8 +322,8 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
             isServiceBound = true;
             notificationManager = new PlayerNotificationManager(
                     service,
-                    "channel",
-                    1,
+                    service.getString(R.string.player_notification_channel_id),
+                    PLAYER_NOTIFICATION_ID,
                     new PlayerNotificationManager.MediaDescriptionAdapter() {
 
                         @Override
