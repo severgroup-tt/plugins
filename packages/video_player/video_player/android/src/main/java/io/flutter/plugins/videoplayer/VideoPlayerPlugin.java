@@ -15,18 +15,29 @@ import android.content.ServiceConnection;
 import android.graphics.Bitmap;
 import android.os.Build;
 import android.os.IBinder;
+import android.os.Looper;
 import android.support.v4.media.session.MediaSessionCompat;
 import android.util.Log;
 
+import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 
 import com.google.android.exoplayer2.DefaultControlDispatcher;
+import com.google.android.exoplayer2.ExoPlaybackException;
+import com.google.android.exoplayer2.MediaItem;
+import com.google.android.exoplayer2.PlaybackParameters;
+import com.google.android.exoplayer2.PlaybackPreparer;
 import com.google.android.exoplayer2.Player;
+import com.google.android.exoplayer2.Timeline;
 import com.google.android.exoplayer2.ext.mediasession.MediaSessionConnector;
+import com.google.android.exoplayer2.source.TrackGroupArray;
+import com.google.android.exoplayer2.trackselection.TrackSelectionArray;
+import com.google.android.exoplayer2.trackselection.TrackSelector;
 import com.google.android.exoplayer2.ui.PlayerNotificationManager;
 
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
+import java.util.List;
 
 import javax.net.ssl.HttpsURLConnection;
 
@@ -226,11 +237,17 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
                             arg.getFormatHint(),
                             options);
         }
-        service.putPlayer(handle.id(), player, arg.getTitle());
-        mediaSessionConnector.setPlayer(player.exoPlayer);
-        mediaSession.setActive(true);
+        service.putPlayer(handle.id(), player);
 
-        notificationManager.setPlayer(player.exoPlayer);
+        final Player proxyPlayer = new PlayerDelegate(
+                player.exoPlayer,
+                () -> remoteButtonsApi.getTrackMeta() != null && remoteButtonsApi.getTrackMeta().hasNext,
+                () -> remoteButtonsApi.getTrackMeta() != null && remoteButtonsApi.getTrackMeta().hasPrevious
+        );
+
+        mediaSessionConnector.setPlayer(proxyPlayer);
+        mediaSession.setActive(true);
+        notificationManager.setPlayer(proxyPlayer);
 
         TextureMessage result = new TextureMessage();
         result.setTextureId(handle.id());
@@ -353,13 +370,13 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
                 @Override
                 public boolean dispatchPrevious(Player player) {
                     remoteButtonsApi.onPreviousTap();
-                    return super.dispatchPrevious(player);
+                    return true;
                 }
 
                 @Override
                 public boolean dispatchNext(Player player) {
                     remoteButtonsApi.onNextTap();
-                    return super.dispatchNext(player);
+                    return true;
                 }
             });
             notificationManager.setMediaSessionToken(mediaSession.getSessionToken());

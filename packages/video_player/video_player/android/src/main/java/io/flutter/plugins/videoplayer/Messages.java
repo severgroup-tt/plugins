@@ -86,23 +86,12 @@ public class Messages {
       this.formatHint = setterArg;
     }
 
-    private String title;
-
-    public String getTitle() {
-      return title;
-    }
-
-    public void setTitle(String title) {
-      this.title = title;
-    }
-
     HashMap toMap() {
       HashMap<String, Object> toMapResult = new HashMap<>();
       toMapResult.put("asset", asset);
       toMapResult.put("uri", uri);
       toMapResult.put("packageName", packageName);
       toMapResult.put("formatHint", formatHint);
-      toMapResult.put("title", title);
       return toMapResult;
     }
 
@@ -116,8 +105,6 @@ public class Messages {
       fromMapResult.packageName = (String) packageName;
       Object formatHint = map.get("formatHint");
       fromMapResult.formatHint = (String) formatHint;
-      Object title = map.get("title");
-      fromMapResult.title = (String) title;
       return fromMapResult;
     }
   }
