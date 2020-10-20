@@ -69,6 +69,9 @@ class FakeController extends ValueNotifier<VideoPlayerValue>
 
   @override
   VideoPlayerOptions get videoPlayerOptions => null;
+
+  @override
+  bool get isBackgroundPlaybackEnabled => false;
 }
 
 Future<ClosedCaptionFile> _loadClosedCaption() async =>

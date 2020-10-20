@@ -53,7 +53,7 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
     private FlutterState flutterState;
     private VideoPlayerOptions options = new VideoPlayerOptions();
 
-    private MethodChannel callbackMethodChannel;
+    private RemoteButtonsApi remoteButtonsApi;
 
     private VideoPlayerService service;
     private boolean isServiceBound = false;
@@ -119,10 +119,7 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
                         binding.getTextureRegistry());
         flutterState.startListening(this, binding.getBinaryMessenger());
 
-        this.callbackMethodChannel = new MethodChannel(
-                flutterState.binaryMessenger,
-                "flutter.io/videoPlayer/callback"
-        );
+        this.remoteButtonsApi = new RemoteButtonsApi(flutterState.binaryMessenger);
     }
 
     @Override
@@ -135,7 +132,9 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
     }
 
     private void disposeAllPlayers() {
-        service.disposeAllPlayers();
+        if (service != null) {
+            service.disposeAllPlayers();
+        }
     }
 
     private void onDestroy() {
@@ -145,9 +144,17 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
         // be replaced with just asserting that videoPlayers.isEmpty().
         // https://github.com/flutter/flutter/issues/20989 tracks this.
         disposeAllPlayers();
+
+        if (isServiceBound) {
+            service.stopSelf();
+        }
     }
 
-    public void initialize(Context context, String notificationChannelId, String notificationChannelName) {
+    public void initialize() {
+        disposeAllPlayers();
+    }
+
+    void initService(Context context, String notificationChannelId, String notificationChannelName) {
         mediaSession = new MediaSessionCompat(context, context.getPackageName());
         mediaSessionConnector = new MediaSessionConnector(mediaSession);
 
@@ -157,7 +164,6 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
         }
 
         createNotificationChannel(context, notificationChannelId, notificationChannelName);
-        disposeAllPlayers();
     }
 
     private void createNotificationChannel(Context context, String channelId, String channelName) {
@@ -174,6 +180,13 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
     }
 
     public TextureMessage create(CreateMessage arg) {
+        service.startForeground(
+                1,
+                new NotificationCompat
+                        .Builder(service, "channel")
+                        .build()
+        );
+
         TextureRegistry.SurfaceTextureEntry handle =
                 flutterState.textureRegistry.createSurfaceTexture();
         EventChannel eventChannel =
@@ -219,6 +232,7 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
     }
 
     public void dispose(TextureMessage arg) {
+        service.stopForeground(true);
         service.dispose(arg.getTextureId());
     }
 
@@ -284,6 +298,7 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
         }
 
         void startListening(VideoPlayerPlugin methodCallHandler, BinaryMessenger messenger) {
+            methodCallHandler.initService(applicationContext, "channel", "player");
             VideoPlayerApi.setup(applicationContext, messenger, methodCallHandler);
         }
 
@@ -295,6 +310,8 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
     private ServiceConnection connection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName componentName, IBinder iBinder) {
+            Log.i("VideoPlayerPlugin", "[VideoPlayerApi] onServiceConnected");
+
             service = ((VideoPlayerService.VideoPlayerBinder) iBinder).getService();
             isServiceBound = true;
             notificationManager = new PlayerNotificationManager(
@@ -305,7 +322,8 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
 
                         @Override
                         public CharSequence getCurrentContentTitle(Player player) {
-                            return service.getTitle();
+                            final TrackMeta meta = remoteButtonsApi.getTrackMeta();
+                            return meta != null ? meta.title : null;
                         }
 
                         @Override
@@ -315,7 +333,8 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
 
                         @Override
                         public CharSequence getCurrentContentText(Player player) {
-                            return null;
+                            final TrackMeta meta = remoteButtonsApi.getTrackMeta();
+                            return meta != null ? meta.albumTitle : null;
                         }
 
                         @Override
@@ -327,25 +346,17 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
             notificationManager.setControlDispatcher(new DefaultControlDispatcher(0, 0) {
                 @Override
                 public boolean dispatchPrevious(Player player) {
-                    Log.i("ForegroundPlayback", "dispatchPrevious()");
-                    callbackMethodChannel.invokeMethod("onPreviousTap", null);
+                    remoteButtonsApi.onPreviousTap();
                     return super.dispatchPrevious(player);
                 }
 
                 @Override
                 public boolean dispatchNext(Player player) {
-                    Log.i("ForegroundPlayback", "dispatchNext()");
-                    callbackMethodChannel.invokeMethod("onNextTap", null);
+                    remoteButtonsApi.onNextTap();
                     return super.dispatchNext(player);
                 }
             });
             notificationManager.setMediaSessionToken(mediaSession.getSessionToken());
-            service.startForeground(
-                    1,
-                    new NotificationCompat
-                            .Builder(service, "channel")
-                            .build()
-            );
         }
 
         @Override

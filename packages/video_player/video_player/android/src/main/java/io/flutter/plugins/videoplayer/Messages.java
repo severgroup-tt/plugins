@@ -321,7 +321,7 @@ public class Messages {
 
   /** Generated interface from Pigeon that represents a handler of messages from Flutter. */
   public interface VideoPlayerApi {
-    void initialize(Context context, String notificationChannelId, String notificationChannelName);
+    void initialize();
 
     TextureMessage create(CreateMessage arg);
 
@@ -345,8 +345,6 @@ public class Messages {
 
     /** Sets up an instance of `VideoPlayerApi` to handle messages through the `binaryMessenger` */
     static void setup(Context context, BinaryMessenger binaryMessenger, VideoPlayerApi api) {
-      Log.i("ForegroundPlayback", "setup plugin");
-
       {
         BasicMessageChannel<Object> channel =
             new BasicMessageChannel<>(
@@ -358,7 +356,7 @@ public class Messages {
               (message, reply) -> {
                 HashMap<String, HashMap> wrapped = new HashMap<>();
                 try {
-                  api.initialize(context, "channel", "player");
+                  api.initialize();
                   wrapped.put("result", null);
                 } catch (Exception exception) {
                   wrapped.put("error", wrapError(exception));

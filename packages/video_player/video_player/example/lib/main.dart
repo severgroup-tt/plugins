@@ -218,7 +218,6 @@ class _BumbleBeeRemoteVideoState extends State<_BumbleBeeRemoteVideo> {
       'https://flutter.github.io/assets-for-api-docs/assets/videos/bee.mp4',
       closedCaptionFile: _loadCaptions(),
       videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
-      notificationButtonsController: NotificationButtonsControllerImpl(),
     );
 
     _controller.addListener(() {
@@ -226,6 +225,19 @@ class _BumbleBeeRemoteVideoState extends State<_BumbleBeeRemoteVideo> {
     });
     _controller.setLooping(true);
     _controller.initialize();
+
+    final remotePlayerControlsController = RemotePlayerControlsController(
+      onNextTap: () => print("NotificationButtonsController: onNextTap()"),
+      onPreviousTap: () => print("NotificationButtonsController: onPreviousTap()"),
+    );
+    remotePlayerControlsController.setTrackMeta(TrackMeta(
+      hasNext: true,
+      hasPrevious: true,
+      title: "Video title",
+      albumTitle: "Subtitle or something",
+      duration: 0,
+      position: 0,
+    ));
   }
 
   @override
@@ -391,17 +403,5 @@ class _PlayerVideoAndPopPageState extends State<_PlayerVideoAndPopPage> {
         ),
       ),
     );
-  }
-}
-
-class NotificationButtonsControllerImpl implements NotificationButtonsController {
-  @override
-  void onNextTap() {
-    print("NotificationButtonsController: onNextTap()");
-  }
-
-  @override
-  void onPreviousTap() {
-    print("NotificationButtonsController: onPreviousTap()");
   }
 }
