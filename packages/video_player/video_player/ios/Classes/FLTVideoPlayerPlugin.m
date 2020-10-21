@@ -96,6 +96,14 @@ static void* playbackBufferFullContext = &playbackBufferFullContext;
                                            selector:@selector(itemDidPlayToEndTime:)
                                                name:AVPlayerItemDidPlayToEndTimeNotification
                                              object:item];
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(willEnterBackground:)
+                                                 name:UIApplicationWillResignActiveNotification
+                                               object:item];
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(willEnterForeground:)
+                                                 name:UIApplicationWillResignActiveNotification
+                                               object:item];
 
     [self setupRemoteControlsCallbacks];
 }
@@ -139,6 +147,14 @@ static void* playbackBufferFullContext = &playbackBufferFullContext;
       _eventSink(@{@"event" : @"completed"});
     }
   }
+}
+
+- (void)willEnterBackground:(NSNotification *)notification {
+    _displayLink.paused = YES;
+}
+
+- (void)willEnterForeground:(NSNotification *)notification {
+    _displayLink.paused = !_isPlaying;
 }
 
 static inline CGFloat radiansToDegrees(CGFloat radians) {
