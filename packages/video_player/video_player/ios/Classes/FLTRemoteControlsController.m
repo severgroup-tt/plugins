@@ -86,19 +86,17 @@
 - (void)onSetTrackMeta:(NSDictionary *)meta {
     MPRemoteCommandCenter *remoteCommandCenter = [MPRemoteCommandCenter sharedCommandCenter];
     MPNowPlayingInfoCenter *nowPlayingCenter = [MPNowPlayingInfoCenter defaultCenter];
-    
-    NSDictionary *arguments = meta;
-    
-    BOOL hasNext = ((NSNumber *)arguments[@"has_next"]).boolValue;
+        
+    BOOL hasNext = ((NSNumber *)meta[@"has_next"]).boolValue;
     remoteCommandCenter.nextTrackCommand.enabled = hasNext;
     
-    BOOL hasPrevious = ((NSNumber *)arguments[@"has_previous"]).boolValue;
+    BOOL hasPrevious = ((NSNumber *)meta[@"has_previous"]).boolValue;
     remoteCommandCenter.previousTrackCommand.enabled = hasPrevious;
     
-    NSString *title = arguments[@"title"];
-    NSString *albumTitle = arguments[@"album_title"];
-    NSNumber *position = arguments[@"position"];
-    NSNumber *duration = arguments[@"duration"];
+    NSString *title = meta[@"title"];
+    NSString *albumTitle = meta[@"album_title"];
+    NSNumber *position = meta[@"position"];
+    NSNumber *duration = meta[@"duration"];
     
     NSDictionary *info = @{
         MPNowPlayingInfoPropertyPlaybackRate: @(self.playbackRate),
