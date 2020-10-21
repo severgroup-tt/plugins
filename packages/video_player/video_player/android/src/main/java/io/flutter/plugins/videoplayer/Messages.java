@@ -3,9 +3,6 @@
 
 package io.flutter.plugins.videoplayer;
 
-import android.content.Context;
-import android.util.Log;
-
 import io.flutter.plugin.common.BasicMessageChannel;
 import io.flutter.plugin.common.BinaryMessenger;
 import io.flutter.plugin.common.StandardMessageCodec;
@@ -331,7 +328,7 @@ public class Messages {
     void setMixWithOthers(MixWithOthersMessage arg);
 
     /** Sets up an instance of `VideoPlayerApi` to handle messages through the `binaryMessenger` */
-    static void setup(Context context, BinaryMessenger binaryMessenger, VideoPlayerApi api) {
+    static void setup(BinaryMessenger binaryMessenger, VideoPlayerApi api) {
       {
         BasicMessageChannel<Object> channel =
             new BasicMessageChannel<>(
