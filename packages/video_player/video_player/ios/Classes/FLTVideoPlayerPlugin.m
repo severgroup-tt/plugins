@@ -6,6 +6,8 @@
 #import <AVFoundation/AVFoundation.h>
 #import <GLKit/GLKit.h>
 #import "messages.h"
+#import "FLTRemoteControlsController.h"
+#import <Flutter/Flutter.h>
 
 #if !__has_feature(objc_arc)
 #error Code Requires ARC.
@@ -47,6 +49,7 @@ int64_t FLTCMTimeToMillis(CMTime time) {
 @property(nonatomic) bool isLooping;
 @property(nonatomic, readonly) bool isInitialized;
 @property(nonatomic) double requiredSpeed;
+
 - (instancetype)initWithURL:(NSURL*)url frameUpdater:(FLTFrameUpdater*)frameUpdater;
 - (void)play;
 - (void)pause;
@@ -93,7 +96,39 @@ static void* playbackBufferFullContext = &playbackBufferFullContext;
                                            selector:@selector(itemDidPlayToEndTime:)
                                                name:AVPlayerItemDidPlayToEndTimeNotification
                                              object:item];
+
+    [self setupRemoteControlsCallbacks];
 }
+
+#pragma mark - Remote controls
+
+- (void)setupRemoteControlsCallbacks {
+    __weak __typeof(self)weakSelf = self;
+    FLTRemoteControlsController *controller = [FLTRemoteControlsController sharedController];
+    controller.onTogglePlaybackBlock = ^MPRemoteCommandHandlerStatus{
+        return [weakSelf togglePlaybackFromRemoteControls];
+    };
+}
+
+- (MPRemoteCommandHandlerStatus)togglePlaybackFromRemoteControls {
+    _isPlaying = !_isPlaying;
+    [self updatePlayingState];
+    [self updateRemoteControlsPositionAndDuration:(NSInteger)[self position]];
+    [self updateRemoteControlsPlaybackRate];
+    
+    return MPRemoteCommandHandlerStatusSuccess;
+}
+
+- (void)updateRemoteControlsPlaybackRate {
+    [FLTRemoteControlsController sharedController].playbackRate = _isPlaying ? _requiredSpeed : 0;
+}
+
+- (void)updateRemoteControlsPositionAndDuration:(NSInteger)position {
+    [[FLTRemoteControlsController sharedController] setPosition:position
+                                                       duration:(NSInteger)[self duration]];
+}
+
+#pragma mark -
 
 - (void)itemDidPlayToEndTime:(NSNotification*)notification {
   if (_isLooping) {
@@ -351,6 +386,8 @@ static inline CGFloat radiansToDegrees(CGFloat radians) {
   [_player seekToTime:CMTimeMake(location, 1000)
       toleranceBefore:kCMTimeZero
        toleranceAfter:kCMTimeZero];
+
+    [self updateRemoteControlsPositionAndDuration:location];
 }
 
 - (void)setIsLooping:(bool)isLooping {
@@ -383,6 +420,7 @@ static inline CGFloat radiansToDegrees(CGFloat radians) {
   }
 
   _requiredSpeed = speed;
+    [self updateRemoteControlsPlaybackRate];
 
   // AVAudioPlayer starts playback when rate is set.
   if (!_isPlaying) {
