@@ -86,10 +86,13 @@ class _ButterFlyAssetVideoInList extends StatelessWidget {
                 leading: Icon(Icons.cake),
                 title: Text("Video video"),
               ),
-              Stack(alignment: FractionalOffset.bottomRight + const FractionalOffset(-0.1, -0.1), children: <Widget>[
-                _ButterFlyAssetVideo(),
-                Image.asset('assets/flutter-mark-square-64.png'),
-              ]),
+              Stack(
+                  alignment: FractionalOffset.bottomRight +
+                      const FractionalOffset(-0.1, -0.1),
+                  children: <Widget>[
+                    _ButterFlyAssetVideo(),
+                    Image.asset('assets/flutter-mark-square-64.png'),
+                  ]),
             ],
           ),
         ])),
@@ -206,14 +209,14 @@ class _BumbleBeeRemoteVideoState extends State<_BumbleBeeRemoteVideo> {
   VideoPlayerController _controller;
 
   Future<ClosedCaptionFile> _loadCaptions() async {
-    final String fileContents = await DefaultAssetBundle.of(context).loadString('assets/bumble_bee_captions.srt');
+    final String fileContents = await DefaultAssetBundle.of(context)
+        .loadString('assets/bumble_bee_captions.srt');
     return SubRipCaptionFile(fileContents);
   }
 
   @override
   void initState() {
     super.initState();
-
     _controller = VideoPlayerController.network(
       'https://flutter.github.io/assets-for-api-docs/assets/videos/bee.mp4',
       closedCaptionFile: _loadCaptions(),
@@ -362,7 +365,8 @@ class _PlayerVideoAndPopPageState extends State<_PlayerVideoAndPopPage> {
   void initState() {
     super.initState();
 
-    _videoPlayerController = VideoPlayerController.asset('assets/Butterfly-209.mp4');
+    _videoPlayerController =
+        VideoPlayerController.asset('assets/Butterfly-209.mp4');
     _videoPlayerController.addListener(() {
       if (startedPlaying && !_videoPlayerController.value.isPlaying) {
         Navigator.pop(context);
