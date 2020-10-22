@@ -4,28 +4,14 @@
 
 package io.flutter.plugins.videoplayer;
 
-import android.app.Notification;
-import android.app.NotificationChannel;
-import android.app.NotificationManager;
-import android.app.PendingIntent;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
-import android.graphics.Bitmap;
 import android.os.Build;
 import android.os.IBinder;
-import android.support.v4.media.session.MediaSessionCompat;
 import android.util.Log;
 import android.util.LongSparseArray;
-
-import androidx.core.app.NotificationCompat;
-
-import com.google.android.exoplayer2.DefaultControlDispatcher;
-import com.google.android.exoplayer2.Player;
-import com.google.android.exoplayer2.ext.mediasession.MediaSessionConnector;
-import com.google.android.exoplayer2.ui.PlayerNotificationManager;
-
 import io.flutter.embedding.engine.loader.FlutterLoader;
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
 import io.flutter.plugin.common.BinaryMessenger;
@@ -45,22 +31,13 @@ import javax.net.ssl.HttpsURLConnection;
 
 /** Android platform implementation of the VideoPlayerPlugin. */
 public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
-  public static final int PLAYER_NOTIFICATION_ID = 1;
-
   private static final String TAG = "VideoPlayerPlugin";
   private final LongSparseArray<VideoPlayer> videoPlayers = new LongSparseArray<>();
   private FlutterState flutterState;
   private VideoPlayerOptions options = new VideoPlayerOptions();
 
-  private RemoteButtonsApi remoteButtonsApi;
-
   private VideoPlayerService service;
   private boolean isServiceBound = false;
-
-  private MediaSessionCompat mediaSession;
-  private MediaSessionConnector mediaSessionConnector;
-
-  private PlayerNotificationManager notificationManager;
 
   /** Register this with the v2 embedding for the plugin to respond to lifecycle callbacks. */
   public VideoPlayerPlugin() {}
@@ -113,8 +90,6 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
             flutterLoader::getLookupKeyForAsset,
             binding.getTextureRegistry());
     flutterState.startListening(this, binding.getBinaryMessenger());
-
-    this.remoteButtonsApi = new RemoteButtonsApi(flutterState.binaryMessenger);
   }
 
   @Override
@@ -127,9 +102,10 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
   }
 
   private void disposeAllPlayers() {
-    if (service != null) {
-      service.disposeAllPlayers();
+    for (int i = 0; i < videoPlayers.size(); i++) {
+      videoPlayers.valueAt(i).dispose();
     }
+    videoPlayers.clear();
   }
 
   private void onDestroy() {
@@ -149,30 +125,14 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
     disposeAllPlayers();
   }
 
-   void initService(Context context) {
-     mediaSession = new MediaSessionCompat(context, context.getPackageName());
-     mediaSessionConnector = new MediaSessionConnector(mediaSession);
-
-     if (!isServiceBound) {
-       Intent intent = new Intent(context, VideoPlayerService.class);
-       context.bindService(intent, connection, Context.BIND_AUTO_CREATE);
-     }
-
-     createNotificationChannel(
-       context,
-       context.getString(R.string.player_notification_channel_id),
-       context.getString(R.string.player_notification_channel_name)
-     );
-   }
+  void initService(Context context) {
+    if (!isServiceBound) {
+      Intent intent = new Intent(context, VideoPlayerService.class);
+      context.bindService(intent, connection, Context.BIND_AUTO_CREATE);
+    }
+  }
 
   public TextureMessage create(CreateMessage arg) {
-    service.startForeground(
-        PLAYER_NOTIFICATION_ID,
-        new NotificationCompat
-            .Builder(service, service.getString(R.string.player_notification_channel_id))
-            .build()
-    );
-
     TextureRegistry.SurfaceTextureEntry handle =
         flutterState.textureRegistry.createSurfaceTexture();
     EventChannel eventChannel =
@@ -208,18 +168,8 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
               options);
       videoPlayers.put(handle.id(), player);
     }
-
-    service.putPlayer(handle.id(), player);
-
-    final Player proxyPlayer = new PlayerDelegate(
-        player.exoPlayer,
-        () -> remoteButtonsApi.getTrackMeta() != null && remoteButtonsApi.getTrackMeta().hasNext,
-        () -> remoteButtonsApi.getTrackMeta() != null && remoteButtonsApi.getTrackMeta().hasPrevious
-    );
-
-    mediaSessionConnector.setPlayer(proxyPlayer);
-    mediaSession.setActive(true);
-    notificationManager.setPlayer(proxyPlayer);
+    
+    service.initWithPlayer(player.exoPlayer);
 
     TextureMessage result = new TextureMessage();
     result.setTextureId(handle.id());
@@ -227,55 +177,52 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
   }
 
   public void dispose(TextureMessage arg) {
-    service.stopForeground(true);
-    service.dispose(arg.getTextureId());
+    VideoPlayer player = videoPlayers.get(arg.getTextureId());
+    player.dispose();
+    videoPlayers.remove(arg.getTextureId());
   }
 
   public void setLooping(LoopingMessage arg) {
-    service.setLooping(arg.getTextureId(), arg.getIsLooping());
+    VideoPlayer player = videoPlayers.get(arg.getTextureId());
+    player.setLooping(arg.getIsLooping());
   }
 
   public void setVolume(VolumeMessage arg) {
-    service.setVolume(arg.getTextureId(), arg.getVolume());
+    VideoPlayer player = videoPlayers.get(arg.getTextureId());
+    player.setVolume(arg.getVolume());
   }
 
   public void setPlaybackSpeed(PlaybackSpeedMessage arg) {
-    service.setPlaybackSpeed(arg.getTextureId(), arg.getSpeed());
+    VideoPlayer player = videoPlayers.get(arg.getTextureId());
+    player.setPlaybackSpeed(arg.getSpeed());
   }
 
   public void play(TextureMessage arg) {
-    service.play(arg.getTextureId());
+    VideoPlayer player = videoPlayers.get(arg.getTextureId());
+    player.play();
   }
 
   public PositionMessage position(TextureMessage arg) {
-    return service.position(arg.getTextureId());
+    VideoPlayer player = videoPlayers.get(arg.getTextureId());
+    PositionMessage result = new PositionMessage();
+    result.setPosition(player.getPosition());
+    player.sendBufferingUpdate();
+    return result;
   }
 
   public void seekTo(PositionMessage arg) {
-    service.seekTo(arg.getTextureId(), arg.getPosition().intValue());
+    VideoPlayer player = videoPlayers.get(arg.getTextureId());
+    player.seekTo(arg.getPosition().intValue());
   }
 
   public void pause(TextureMessage arg) {
-    service.pause(arg.getTextureId());
+    VideoPlayer player = videoPlayers.get(arg.getTextureId());
+    player.pause();
   }
 
   @Override
   public void setMixWithOthers(MixWithOthersMessage arg) {
     options.mixWithOthers = arg.getMixWithOthers();
-  }
-
-  private void createNotificationChannel(Context context, String channelId, String channelName) {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
-
-    NotificationChannel channel = new NotificationChannel(
-        channelId,
-        channelName,
-        NotificationManager.IMPORTANCE_NONE
-    );
-
-    channel.setLockscreenVisibility(Notification.VISIBILITY_PRIVATE);
-    NotificationManager service = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
-    service.createNotificationChannel(channel);
   }
 
   private interface KeyForAssetFn {
@@ -323,49 +270,8 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
 
       service = ((VideoPlayerService.VideoPlayerBinder) iBinder).getService();
       isServiceBound = true;
-      notificationManager = new PlayerNotificationManager(
-          service,
-          service.getString(R.string.player_notification_channel_id),
-          PLAYER_NOTIFICATION_ID,
-          new PlayerNotificationManager.MediaDescriptionAdapter() {
 
-            @Override
-            public CharSequence getCurrentContentTitle(Player player) {
-              final TrackMeta meta = remoteButtonsApi.getTrackMeta();
-              return meta != null ? meta.title : null;
-            }
-
-            @Override
-            public PendingIntent createCurrentContentIntent(Player player) {
-              return null;
-            }
-
-            @Override
-            public CharSequence getCurrentContentText(Player player) {
-              final TrackMeta meta = remoteButtonsApi.getTrackMeta();
-              return meta != null ? meta.albumTitle : null;
-            }
-
-            @Override
-            public Bitmap getCurrentLargeIcon(Player player, PlayerNotificationManager.BitmapCallback callback) {
-              return null;
-            }
-          }
-      );
-      notificationManager.setControlDispatcher(new DefaultControlDispatcher(0, 0) {
-        @Override
-        public boolean dispatchPrevious(Player player) {
-          remoteButtonsApi.onPreviousTap();
-          return true;
-        }
-
-        @Override
-        public boolean dispatchNext(Player player) {
-          remoteButtonsApi.onNextTap();
-          return true;
-        }
-      });
-      notificationManager.setMediaSessionToken(mediaSession.getSessionToken());
+      service.remoteButtonsApi = new RemoteButtonsApi(flutterState.binaryMessenger);
     }
 
     @Override
