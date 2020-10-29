@@ -4,8 +4,12 @@
 
 package io.flutter.plugins.videoplayer;
 
+import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
+import android.content.ServiceConnection;
 import android.os.Build;
+import android.os.IBinder;
 import android.util.Log;
 import android.util.LongSparseArray;
 import io.flutter.embedding.engine.loader.FlutterLoader;
@@ -31,6 +35,9 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
   private final LongSparseArray<VideoPlayer> videoPlayers = new LongSparseArray<>();
   private FlutterState flutterState;
   private VideoPlayerOptions options = new VideoPlayerOptions();
+
+  private VideoPlayerService service;
+  private boolean isServiceBound = false;
 
   /** Register this with the v2 embedding for the plugin to respond to lifecycle callbacks. */
   public VideoPlayerPlugin() {}
@@ -108,10 +115,21 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
     // be replaced with just asserting that videoPlayers.isEmpty().
     // https://github.com/flutter/flutter/issues/20989 tracks this.
     disposeAllPlayers();
+
+    if (isServiceBound) {
+      service.stopSelf();
+    }
   }
 
   public void initialize() {
     disposeAllPlayers();
+  }
+
+  void initService(Context context) {
+    if (!isServiceBound) {
+      Intent intent = new Intent(context, VideoPlayerService.class);
+      context.bindService(intent, connection, Context.BIND_AUTO_CREATE);
+    }
   }
 
   public TextureMessage create(CreateMessage arg) {
@@ -150,6 +168,8 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
               options);
       videoPlayers.put(handle.id(), player);
     }
+    
+    service.initWithPlayer(player.exoPlayer);
 
     TextureMessage result = new TextureMessage();
     result.setTextureId(handle.id());
@@ -157,6 +177,8 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
   }
 
   public void dispose(TextureMessage arg) {
+    service.dispose();
+
     VideoPlayer player = videoPlayers.get(arg.getTextureId());
     player.dispose();
     videoPlayers.remove(arg.getTextureId());
@@ -234,6 +256,7 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
     }
 
     void startListening(VideoPlayerPlugin methodCallHandler, BinaryMessenger messenger) {
+      methodCallHandler.initService(applicationContext);
       VideoPlayerApi.setup(messenger, methodCallHandler);
     }
 
@@ -241,4 +264,21 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
       VideoPlayerApi.setup(messenger, null);
     }
   }
+
+  private final ServiceConnection connection = new ServiceConnection() {
+    @Override
+    public void onServiceConnected(ComponentName componentName, IBinder iBinder) {
+      Log.i("VideoPlayerPlugin", "[VideoPlayerApi] onServiceConnected");
+
+      service = ((VideoPlayerService.VideoPlayerBinder) iBinder).getService();
+      isServiceBound = true;
+
+      service.remoteButtonsApi = new RemoteButtonsApi(flutterState.binaryMessenger);
+    }
+
+    @Override
+    public void onServiceDisconnected(ComponentName componentName) {
+      isServiceBound = false;
+    }
+  };
 }

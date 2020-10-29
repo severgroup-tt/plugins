@@ -228,6 +228,19 @@ class _BumbleBeeRemoteVideoState extends State<_BumbleBeeRemoteVideo> {
     });
     _controller.setLooping(true);
     _controller.initialize();
+
+    final remotePlayerControlsController = RemotePlayerControlsController(
+      onNextTap: () => print("NotificationButtonsController: onNextTap()"),
+      onPreviousTap: () => print("NotificationButtonsController: onPreviousTap()"),
+    );
+    remotePlayerControlsController.setTrackMeta(TrackMeta(
+      hasNext: true,
+      hasPrevious: true,
+      title: "Video title",
+      albumTitle: "Subtitle or something",
+      duration: 0,
+      position: 0,
+    ));
   }
 
   @override
