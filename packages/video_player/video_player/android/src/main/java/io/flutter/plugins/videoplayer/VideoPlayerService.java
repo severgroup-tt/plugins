@@ -31,8 +31,6 @@ import com.google.android.exoplayer2.ui.PlayerNotificationManager;
 import java.util.List;
 
 public class VideoPlayerService extends Service {
-    public static final int PLAYER_NOTIFICATION_ID = 1;
-
     private final LongSparseArray<VideoPlayer> videoPlayers = new LongSparseArray<>();
     private long lastTextureId;
 
@@ -43,8 +41,17 @@ public class VideoPlayerService extends Service {
 
     private PlayerNotificationManager notificationManager;
 
-    private VideoPlayer getLastPlayer() {
-        return videoPlayers.get(lastTextureId);
+    @Override
+    public void onCreate() {
+        super.onCreate();
+
+        initMediaSession();
+        initNotificationManager();
+        createNotificationChannel(
+            this,
+            getString(R.string.player_notification_channel_id),
+            getString(R.string.player_notification_channel_name)
+        );
     }
 
     @Override
@@ -55,65 +62,11 @@ public class VideoPlayerService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         startForeground(
-                PLAYER_NOTIFICATION_ID,
+                getNotificationId(),
                 new NotificationCompat
                         .Builder(this, getString(R.string.player_notification_channel_id))
                         .build()
         );
-
-        notificationManager = new PlayerNotificationManager(
-                this,
-                getString(R.string.player_notification_channel_id),
-                PLAYER_NOTIFICATION_ID,
-                new PlayerNotificationManager.MediaDescriptionAdapter() {
-
-                    @Override
-                    public CharSequence getCurrentContentTitle(Player player) {
-                        final TrackMeta meta = remoteButtonsApi.getTrackMeta();
-                        return meta != null ? meta.title : null;
-                    }
-
-                    @Override
-                    public PendingIntent createCurrentContentIntent(Player player) {
-                        return null;
-                    }
-
-                    @Override
-                    public CharSequence getCurrentContentText(Player player) {
-                        final TrackMeta meta = remoteButtonsApi.getTrackMeta();
-                        return meta != null ? meta.albumTitle : null;
-                    }
-
-                    @Override
-                    public Bitmap getCurrentLargeIcon(Player player, PlayerNotificationManager.BitmapCallback callback) {
-                        return null;
-                    }
-                }
-        );
-        notificationManager.setControlDispatcher(new DefaultControlDispatcher(0, 0) {
-            @Override
-            public boolean dispatchPrevious(Player player) {
-                remoteButtonsApi.onPreviousTap();
-                return true;
-            }
-
-            @Override
-            public boolean dispatchNext(Player player) {
-                remoteButtonsApi.onNextTap();
-                return true;
-            }
-        });
-
-        mediaSession = new MediaSessionCompat(this, getPackageName());
-        mediaSessionConnector = new MediaSessionConnector(mediaSession);
-
-        createNotificationChannel(
-                this,
-                getString(R.string.player_notification_channel_id),
-                getString(R.string.player_notification_channel_name)
-        );
-
-        notificationManager.setMediaSessionToken(mediaSession.getSessionToken());
 
         return START_STICKY;
     }
@@ -128,6 +81,11 @@ public class VideoPlayerService extends Service {
         mediaSessionConnector.setPlayer(proxyPlayer);
         mediaSession.setActive(true);
         notificationManager.setPlayer(proxyPlayer);
+    }
+
+    void dispose() {
+        stopForeground(true);
+        stopSelf();
     }
     
     public class VideoPlayerBinder extends Binder {
@@ -148,6 +106,62 @@ public class VideoPlayerService extends Service {
         channel.setLockscreenVisibility(Notification.VISIBILITY_PRIVATE);
         NotificationManager service = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
         service.createNotificationChannel(channel);
+    }
+
+    private int getNotificationId() {
+        return getResources().getInteger(R.integer.player_notification_id);
+    }
+
+    private void initMediaSession() {
+        mediaSession = new MediaSessionCompat(this, getPackageName());
+        mediaSessionConnector = new MediaSessionConnector(mediaSession);
+    }
+
+    private void initNotificationManager() {
+        notificationManager = new PlayerNotificationManager(
+            this,
+            getString(R.string.player_notification_channel_id),
+            getNotificationId(),
+            new PlayerNotificationManager.MediaDescriptionAdapter() {
+
+                @Override
+                public CharSequence getCurrentContentTitle(Player player) {
+                    final TrackMeta meta = remoteButtonsApi.getTrackMeta();
+                    return meta != null ? meta.title : null;
+                }
+
+                @Override
+                public PendingIntent createCurrentContentIntent(Player player) {
+                    return null;
+                }
+
+                @Override
+                public CharSequence getCurrentContentText(Player player) {
+                    final TrackMeta meta = remoteButtonsApi.getTrackMeta();
+                    return meta != null ? meta.albumTitle : null;
+                }
+
+                @Override
+                public Bitmap getCurrentLargeIcon(Player player, PlayerNotificationManager.BitmapCallback callback) {
+                    return null;
+                }
+            }
+        );
+        notificationManager.setControlDispatcher(new DefaultControlDispatcher(0, 0) {
+            @Override
+            public boolean dispatchPrevious(Player player) {
+                remoteButtonsApi.onPreviousTap();
+                return true;
+            }
+
+            @Override
+            public boolean dispatchNext(Player player) {
+                remoteButtonsApi.onNextTap();
+                return true;
+            }
+        });
+
+        notificationManager.setMediaSessionToken(mediaSession.getSessionToken());
     }
 }
 
