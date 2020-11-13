@@ -11,6 +11,9 @@
 @implementation FLTRemoteControlsController
 
 + (instancetype)sharedController {
+    // Background playback is temporarily disabled
+    return NULL;
+    
     static FLTRemoteControlsController *sharedController = nil;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
