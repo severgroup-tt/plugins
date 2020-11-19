@@ -84,7 +84,7 @@ static NSDictionary *wrapResult(NSDictionary *result, FlutterError *error) {
   if ((NSNull *)result.formatHint == [NSNull null]) {
     result.formatHint = nil;
   }
-    NSNumber *isAudio = dict[@"idAudio"];
+    NSNumber *isAudio = dict[@"isAudio"];
     if (![isAudio isKindOfClass:[NSNull class]]) {
         result.isAudio = isAudio.boolValue;
     }
