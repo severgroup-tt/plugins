@@ -24,7 +24,7 @@ dependencies:
     git:
       url: https://github.com/ragnor-rs/plugins.git
       path: packages/video_player/video_player_platform_interface
-      ref: master
+      ref: 427233d9bcb7c5ff43d856ff3619f81a63f9334c
   video_player_web:
     git:
       url: https://github.com/ragnor-rs/plugins.git
