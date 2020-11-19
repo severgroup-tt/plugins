@@ -24,12 +24,12 @@ dependencies:
     git:
       url: https://github.com/ragnor-rs/plugins.git
       path: packages/video_player/video_player_platform_interface
-      ref: 427233d9bcb7c5ff43d856ff3619f81a63f9334c
+      ref: feature/add-audio-support
   video_player_web:
     git:
       url: https://github.com/ragnor-rs/plugins.git
       path: packages/video_player/video_player_web
-      ref: master
+      ref: feature/add-audio-support
   flutter:
     sdk: flutter
 
